@@ -39,7 +39,7 @@ const MOCK_NOTIFICATIONS = [
   { id: 4, title: 'Security Alert', message: 'New login detected from San Francisco, CA.', time: 'Yesterday', type: 'warning', icon: AlertCircle },
 ];
 
-const Layout: React.FC<LayoutProps> = ({ children }) => {
+const Layout: React.FC = ({ children }) => {
   const { user, organization, isAuthenticated, logout } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
@@ -65,7 +65,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     { name: 'Settings', path: '/settings', icon: Settings },
   ];
 
-  const isPublicPage = ['/', '/pricing', '/verify', '/auth'].includes(location.pathname);
+  // Added /draw and /type to public pages
+  const isPublicPage = ['/', '/pricing', '/verify', '/auth', '/draw', '/type'].includes(location.pathname);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -108,10 +109,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             
             {/* Desktop Nav - Centered */}
             <nav className="hidden lg:flex absolute left-1/2 -translate-x-1/2 items-center gap-8 text-sm font-semibold text-slate-400">
-              <Link to="/" className="hover:text-blue-400 transition-colors">Home</Link>
-              <Link to="/pricing" className="hover:text-blue-400 transition-colors">Pricing</Link>
-              <Link to="/verify" className="hover:text-blue-400 transition-colors">Verification</Link>
-              <Link to="/developer" className="hover:text-blue-400 transition-colors">API</Link>
+              <Link to="/" className="hover:text-white transition-colors">Home</Link>
+              <Link to="/pricing" className="hover:text-white transition-colors">Pricing</Link>
+              <Link to="/verify" className="hover:text-white transition-colors">Verification</Link>
+              <Link to="/developer" className="hover:text-white transition-colors">API</Link>
             </nav>
 
             {/* Actions */}
@@ -132,7 +133,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           {/* Public Mobile Menu */}
           <AnimatePresence>
             {isPublicMobileMenuOpen && (
-              /* @ts-ignore - bypassing framer-motion type mismatch in this environment */
+              /* @ts-ignore */
               <motion.div 
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
@@ -282,7 +283,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       <AnimatePresence>
         {isMobileSidebarOpen && (
           <div className="fixed inset-0 z-[60] md:hidden">
-            {/* @ts-ignore - bypassing framer-motion type mismatch in this environment */}
+            {/* @ts-ignore */}
             <motion.div 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -290,7 +291,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               onClick={() => setIsMobileSidebarOpen(false)}
               className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm"
             />
-            {/* @ts-ignore - bypassing framer-motion type mismatch in this environment */}
+            {/* @ts-ignore */}
             <motion.aside 
               initial={{ x: '-100%' }}
               animate={{ x: 0 }}
@@ -344,7 +345,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
               <AnimatePresence>
                 {showNotifications && (
-                  /* @ts-ignore - bypassing framer-motion type mismatch in this environment */
+                  /* @ts-ignore */
                   <motion.div 
                     initial={{ opacity: 0, y: 10, scale: 0.95 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}

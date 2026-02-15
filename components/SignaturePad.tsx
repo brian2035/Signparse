@@ -11,12 +11,12 @@ const SignaturePad: React.FC<SignaturePadProps> = ({ onSave, onCancel }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [hasContent, setHasContent] = useState(false);
-  const [inkColor, setInkColor] = useState('#0f172a'); // Default black
+  const [inkColor, setInkColor] = useState('#000000'); // Default pure black
 
   const COLORS = [
-    { name: 'Black', hex: '#0f172a' },
-    { name: 'Blue', hex: '#2563eb' },
-    { name: 'Red', hex: '#dc2626' }
+    { name: 'Black', hex: '#000000' },
+    { name: 'Blue', hex: '#0000FF' },
+    { name: 'Red', hex: '#FF0000' }
   ];
 
   // Initialize canvas only once or on resize
@@ -126,7 +126,7 @@ const SignaturePad: React.FC<SignaturePadProps> = ({ onSave, onCancel }) => {
     const canvas = canvasRef.current;
     if (canvas && hasContent) {
       const link = document.createElement('a');
-      link.download = 'Signature_SignParse.png';
+      link.download = 'Signature_SignFlow.png';
       link.href = canvas.toDataURL('image/png');
       link.click();
     }
@@ -163,7 +163,7 @@ const SignaturePad: React.FC<SignaturePadProps> = ({ onSave, onCancel }) => {
               onClick={() => setInkColor(c.hex)}
               className={`
                 w-8 h-8 rounded-full border-2 transition-all
-                ${inkColor === c.hex ? 'border-blue-500 scale-110' : 'border-transparent opacity-60 hover:opacity-100'}
+                ${inkColor === c.hex ? 'border-blue-500 scale-110' : 'border-slate-200 dark:border-slate-700 opacity-60 hover:opacity-100'}
               `}
               style={{ backgroundColor: c.hex }}
               title={c.name}
@@ -172,7 +172,8 @@ const SignaturePad: React.FC<SignaturePadProps> = ({ onSave, onCancel }) => {
         </div>
       </div>
       
-      <div className="relative bg-slate-50 dark:bg-slate-950 rounded-[2rem] border-2 border-slate-200 dark:border-slate-800 overflow-hidden mb-8 h-72 shadow-inner group">
+      {/* Drawing Pad Area - Set to pure white for visibility as requested */}
+      <div className="relative bg-white rounded-[2rem] border-2 border-slate-200 dark:border-slate-800 overflow-hidden mb-8 h-72 shadow-inner group">
         <canvas
           ref={canvasRef}
           onMouseDown={startDrawing}
@@ -185,8 +186,8 @@ const SignaturePad: React.FC<SignaturePadProps> = ({ onSave, onCancel }) => {
           className="w-full h-full cursor-crosshair touch-none"
         />
         {!hasContent && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-slate-300 dark:text-slate-700">
-            <MousePointer2 size={48} className="mb-3 opacity-10" />
+          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-slate-300">
+            <MousePointer2 size={48} className="mb-3 opacity-20" />
             <span className="text-sm font-bold uppercase tracking-widest opacity-40">Digital Ink Workspace</span>
           </div>
         )}

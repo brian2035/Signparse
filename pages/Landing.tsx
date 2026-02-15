@@ -18,7 +18,10 @@ import {
   Cpu,
   ShieldCheck,
   Activity,
-  ChevronRight
+  ChevronRight,
+  PenTool,
+  Keyboard,
+  MousePointer2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -95,6 +98,66 @@ const Landing: React.FC = () => {
               <PlayCircle size={22} /> Explore Demo
             </button>
           </motion.div>
+        </div>
+      </section>
+
+      {/* NEW: Signature Tools Section */}
+      <section className="py-24 relative px-6 overflow-hidden">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-20">
+            <h2 className="text-4xl md:text-6xl font-black text-white tracking-tighter mb-4">Create your mark.</h2>
+            <p className="text-slate-400 text-lg md:text-xl font-medium max-w-2xl mx-auto">Multiple ways to express intent, all backed by cryptographic verification.</p>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-8">
+            {/* Draw Signature */}
+            {/* @ts-ignore */}
+            <motion.div 
+              initial={{ opacity: 0, x: -20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              className="p-10 rounded-[48px] bg-gradient-to-br from-white/[0.03] to-transparent border border-white/5 hover:border-blue-500/30 transition-all duration-500 group relative overflow-hidden flex flex-col"
+            >
+              <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 group-hover:bg-blue-600/10 transition-colors"></div>
+              <div className="w-20 h-20 bg-blue-600/10 rounded-3xl flex items-center justify-center text-blue-400 mb-8 group-hover:scale-110 transition-transform duration-500 shadow-2xl shadow-blue-500/10">
+                <PenTool size={36} />
+              </div>
+              <h3 className="text-3xl font-extrabold mb-4 text-white tracking-tight">Draw Signature</h3>
+              <p className="text-slate-400 leading-relaxed font-medium text-lg mb-8">
+                Use a touchpad, mouse, phone, tablet, or other mobile device to draw a free downloadable online signature. Customize smoothing, color, and more. Download as PNG/JPG.
+              </p>
+              <div className="mt-auto pt-8 border-t border-white/5 flex items-center justify-between">
+                <span className="text-[10px] font-black uppercase tracking-widest text-blue-500/50">Digital Ink Engine</span>
+                <Link to="/draw" className="flex items-center gap-2 text-white font-bold text-sm hover:gap-3 transition-all">
+                  Try Drawing <ArrowRight size={16} className="text-blue-500" />
+                </Link>
+              </div>
+            </motion.div>
+
+            {/* Type Signature */}
+            {/* @ts-ignore */}
+            <motion.div 
+              initial={{ opacity: 0, x: 20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              className="p-10 rounded-[48px] bg-gradient-to-br from-white/[0.03] to-transparent border border-white/5 hover:border-emerald-500/30 transition-all duration-500 group relative overflow-hidden flex flex-col"
+            >
+              <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-600/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 group-hover:bg-emerald-600/10 transition-colors"></div>
+              <div className="w-20 h-20 bg-emerald-600/10 rounded-3xl flex items-center justify-center text-emerald-400 mb-8 group-hover:scale-110 transition-transform duration-500 shadow-2xl shadow-emerald-500/10">
+                <Keyboard size={36} />
+              </div>
+              <h3 className="text-3xl font-extrabold mb-4 text-white tracking-tight">Type Signature</h3>
+              <p className="text-slate-400 leading-relaxed font-medium text-lg mb-8">
+                Type out an online signature and choose from several great-looking handwriting fonts. Customize the style, colors, and more.
+              </p>
+              <div className="mt-auto pt-8 border-t border-white/5 flex items-center justify-between">
+                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-500/50">Typography Engine</span>
+                <Link to="/type" className="flex items-center gap-2 text-white font-bold text-sm hover:gap-3 transition-all">
+                  Try Typing <ArrowRight size={16} className="text-emerald-500" />
+                </Link>
+              </div>
+            </motion.div>
+          </div>
         </div>
       </section>
 

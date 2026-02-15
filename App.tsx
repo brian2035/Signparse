@@ -12,6 +12,8 @@ import Templates from './pages/Templates';
 import Settings from './pages/Settings';
 import Verification from './pages/Verification';
 import Auth from './pages/Auth';
+import DrawSignature from './pages/DrawSignature';
+import TypeSignature from './pages/TypeSignature';
 import { PRICING_PLANS } from './constants';
 import { Check } from 'lucide-react';
 
@@ -78,6 +80,8 @@ const App: React.FC = () => {
           <Routes>
             <Route path="/" element={<Landing />} />
             <Route path="/auth" element={<Auth />} />
+            <Route path="/draw" element={<DrawSignature />} />
+            <Route path="/type" element={<TypeSignature />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/documents" element={<Documents />} />
             <Route path="/templates" element={<Templates />} />
