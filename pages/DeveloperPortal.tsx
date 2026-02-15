@@ -28,7 +28,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const LOGO_URL = "https://i.ibb.co/7dZM5KXh/2.png";
+const LOGO_URL = "https://i.ibb.co/5xCWL6pX/Sign-Parse-1.png";
 
 interface ApiKey {
   id: string;
@@ -285,8 +285,8 @@ const result = await client.documents.create({
           <div className="bg-gradient-to-br from-blue-700 to-indigo-900 p-10 rounded-[40px] text-white relative overflow-hidden shadow-2xl group">
              <div className="absolute top-0 right-0 w-48 h-48 bg-white/10 rounded-full blur-[80px] -translate-y-1/2 translate-x-1/2 group-hover:scale-150 transition-transform duration-700"></div>
              <div className="relative z-10">
-               <div className="h-28 w-auto flex items-center justify-start p-2 mb-8 overflow-hidden">
-                 <img src={LOGO_URL} alt="SignFlow Logo" className="h-full w-auto object-contain brightness-0 invert" />
+               <div className="h-64 w-auto flex items-center justify-start p-2 mb-8 overflow-hidden">
+                 <img src={LOGO_URL} alt="Sign-Parse Logo" className="h-full w-auto object-contain brightness-0 invert" />
                </div>
                <h3 className="text-2xl font-extrabold mb-4 tracking-tight">Multi-SDK Platform</h3>
                <p className="text-blue-100/80 text-sm mb-10 leading-relaxed font-medium">
@@ -339,10 +339,11 @@ const result = await client.documents.create({
           </div>
         </div>
       </div>
-      {/* Rest of component remains same... */}
+
       <AnimatePresence>
         {isApiKeyModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-950/90 backdrop-blur-xl">
+            {/* @ts-ignore - bypassing framer-motion type mismatch in this environment */}
             <motion.div 
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -398,6 +399,7 @@ const result = await client.documents.create({
 
         {isSdkModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-950/90 backdrop-blur-xl">
+            {/* @ts-ignore - bypassing framer-motion type mismatch in this environment */}
             <motion.div 
               initial={{ opacity: 0, y: 50 }}
               animate={{ opacity: 1, y: 0 }}
@@ -417,6 +419,7 @@ const result = await client.documents.create({
               <div className="p-10">
                 <AnimatePresence mode="wait">
                   {!activeSdk ? (
+                    /* @ts-ignore - bypassing framer-motion type mismatch in this environment */
                     <motion.div 
                       key="grid"
                       initial={{ opacity: 0, scale: 0.95 }}
@@ -439,6 +442,7 @@ const result = await client.documents.create({
                       ))}
                     </motion.div>
                   ) : (
+                    /* @ts-ignore - bypassing framer-motion type mismatch in this environment */
                     <motion.div 
                       key="detail"
                       initial={{ opacity: 0, x: 20 }}
@@ -504,6 +508,7 @@ const result = await client.documents.create({
 
         {isWebhookModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-950/90 backdrop-blur-xl">
+            {/* @ts-ignore - bypassing framer-motion type mismatch in this environment */}
             <motion.div 
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -569,6 +574,7 @@ const result = await client.documents.create({
 
         {isApiRefOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-950/90 backdrop-blur-xl">
+            {/* @ts-ignore - bypassing framer-motion type mismatch in this environment */}
             <motion.div 
               initial={{ opacity: 0, x: 100 }}
               animate={{ opacity: 1, x: 0 }}

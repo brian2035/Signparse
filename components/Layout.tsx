@@ -19,7 +19,10 @@ import {
   X,
   CheckCircle2,
   Clock,
-  AlertCircle
+  AlertCircle,
+  Plus,
+  HelpCircle,
+  Menu as Hamburger
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -27,7 +30,7 @@ interface LayoutProps {
   children: React.ReactNode;
 }
 
-const LOGO_URL = "https://i.ibb.co/7dZM5KXh/2.png";
+const LOGO_URL = "https://i.ibb.co/5xCWL6pX/Sign-Parse-1.png";
 
 const MOCK_NOTIFICATIONS = [
   { id: 1, title: 'Document Signed', message: 'Sarah Chen signed "NDA_Venture_Capital.pdf"', time: '2 mins ago', type: 'success', icon: CheckCircle2 },
@@ -39,18 +42,26 @@ const MOCK_NOTIFICATIONS = [
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { user, organization, isAuthenticated, logout } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [isPublicMobileMenuOpen, setIsPublicMobileMenuOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const notificationRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
   const navigate = useNavigate();
 
-  const navItems = [
+  const mainNavItems = [
     { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
     { name: 'Documents', path: '/documents', icon: FileText },
     { name: 'Templates', path: '/templates', icon: Layers },
+  ];
+
+  const toolsNavItems = [
     { name: 'Developer', path: '/developer', icon: Code2 },
-    { name: 'Pricing', path: '/pricing', icon: CreditCard },
     { name: 'Verification', path: '/verify', icon: ShieldCheck },
+  ];
+
+  const systemNavItems = [
+    { name: 'Pricing', path: '/pricing', icon: CreditCard },
     { name: 'Settings', path: '/settings', icon: Settings },
   ];
 
@@ -66,6 +77,12 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Close mobile menus on navigation
+  useEffect(() => {
+    setIsMobileSidebarOpen(false);
+    setIsPublicMobileMenuOpen(false);
+  }, [location.pathname]);
+
   const handleLogout = () => {
     logout();
     navigate('/');
@@ -76,156 +93,308 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     return null;
   }
 
+  // Public Navigation Bar
   if (isPublicPage && !isAuthenticated) {
     return (
       <div className="min-h-screen flex flex-col">
         <header className="sticky top-0 z-50 glass border-b border-white/5">
-          <div className="max-w-7xl mx-auto px-6 h-24 flex items-center justify-between">
-            <Link to="/" className="flex items-center group h-full">
-              <div className="h-20 w-auto min-w-[220px] flex items-center justify-start group-hover:scale-105 transition-all duration-500">
-                <img src={LOGO_URL} alt="SignFlow Logo" className="h-full w-auto object-contain" />
+          <div className="max-w-7xl mx-auto px-6 h-32 flex items-center justify-between">
+            {/* Logo */}
+            <Link to="/" className="flex items-center group z-50">
+              <div className="h-24 w-auto min-w-[280px] flex items-center justify-start group-hover:opacity-80 transition-all duration-300">
+                <img src={LOGO_URL} alt="Sign-Parse Logo" className="h-full w-auto object-contain" />
               </div>
             </Link>
             
-            <nav className="hidden lg:flex items-center gap-10 text-sm font-semibold tracking-wide">
-              <Link to="/" className="text-slate-400 hover:text-blue-400 transition-colors">Home</Link>
-              <Link to="/pricing" className="text-slate-400 hover:text-blue-400 transition-colors">Pricing</Link>
-              <Link to="/verify" className="text-slate-400 hover:text-blue-400 transition-colors">Verify</Link>
-              <Link to="/developer" className="text-slate-400 hover:text-blue-400 transition-colors">API</Link>
+            {/* Desktop Nav - Centered */}
+            <nav className="hidden lg:flex absolute left-1/2 -translate-x-1/2 items-center gap-8 text-sm font-semibold text-slate-400">
+              <Link to="/" className="hover:text-blue-400 transition-colors">Home</Link>
+              <Link to="/pricing" className="hover:text-blue-400 transition-colors">Pricing</Link>
+              <Link to="/verify" className="hover:text-blue-400 transition-colors">Verification</Link>
+              <Link to="/developer" className="hover:text-blue-400 transition-colors">API</Link>
             </nav>
 
-            <div className="flex items-center gap-4">
-              <Link to="/auth" className="px-8 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl text-sm font-bold transition-all shadow-xl shadow-blue-500/20 active:scale-95">
+            {/* Actions */}
+            <div className="flex items-center gap-4 z-50">
+              <Link to="/auth" className="text-sm font-bold text-slate-300 hover:text-white transition-colors hidden sm:block">Log In</Link>
+              <Link to="/auth" className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-bold transition-all shadow-xl shadow-blue-500/20 active:scale-95 hidden sm:block">
                 Get Started
               </Link>
+              <button 
+                onClick={() => setIsPublicMobileMenuOpen(!isPublicMobileMenuOpen)}
+                className="lg:hidden p-2 text-slate-400 hover:text-white transition-colors"
+              >
+                {isPublicMobileMenuOpen ? <X size={24} /> : <Hamburger size={24} />}
+              </button>
             </div>
           </div>
+
+          {/* Public Mobile Menu */}
+          <AnimatePresence>
+            {isPublicMobileMenuOpen && (
+              /* @ts-ignore - bypassing framer-motion type mismatch in this environment */
+              <motion.div 
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="lg:hidden bg-slate-900 border-b border-white/5 overflow-hidden"
+              >
+                <div className="p-6 flex flex-col gap-4">
+                  <Link to="/" className="text-lg font-bold text-white py-2">Home</Link>
+                  <Link to="/pricing" className="text-lg font-bold text-white py-2">Pricing</Link>
+                  <Link to="/verify" className="text-lg font-bold text-white py-2">Verification</Link>
+                  <Link to="/developer" className="text-lg font-bold text-white py-2">API</Link>
+                  <div className="h-px bg-white/5 my-2"></div>
+                  <Link to="/auth" className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold text-center">
+                    Get Started Free
+                  </Link>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </header>
         <main className="flex-1">{children}</main>
       </div>
     );
   }
 
-  return (
-    <div className="min-h-screen flex">
-      <aside className={`
-        ${isSidebarOpen ? 'w-72' : 'w-24'} 
-        bg-slate-900/80 backdrop-blur-xl border-r border-white/5 transition-all duration-500 fixed h-full z-40 hidden md:flex flex-col
-      `}>
-        <div className="h-32 flex items-center px-6 shrink-0">
-          <Link to="/" className="flex items-center overflow-hidden w-full group">
-            <div className="w-full h-24 flex items-center justify-start group-hover:scale-105 transition-all duration-500">
-              <img src={organization?.logo || LOGO_URL} className="h-full w-auto max-w-full object-contain" alt="Logo" />
-            </div>
-          </Link>
-        </div>
+  // Authenticated Navigation Layout
+  const SidebarContent = ({ onClose }: { onClose?: () => void }) => (
+    <>
+      <div className="h-40 flex items-center px-6 shrink-0 justify-between">
+        <Link to="/" className="flex items-center group overflow-hidden">
+          <img src={organization?.logo || LOGO_URL} className="h-24 w-auto object-contain" alt="Logo" />
+        </Link>
+        {onClose && (
+          <button onClick={onClose} className="p-2 text-slate-500 hover:text-white">
+            <X size={20} />
+          </button>
+        )}
+      </div>
 
-        <nav className="flex-1 p-6 space-y-3 overflow-y-auto">
-          {navItems.map((item) => {
-            const isActive = location.pathname === item.path;
-            const Icon = item.icon;
-            return (
+      <div className="px-4 mb-6">
+        <button 
+          onClick={() => navigate('/dashboard')}
+          className={`
+            w-full flex items-center justify-center gap-2 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold text-sm shadow-lg shadow-blue-500/20 transition-all active:scale-95
+            ${!isSidebarOpen && !onClose ? 'px-0' : ''}
+          `}
+        >
+          <Plus size={18} />
+          {(isSidebarOpen || onClose) && <span>New Request</span>}
+        </button>
+      </div>
+
+      <nav className="flex-1 px-3 space-y-8 overflow-y-auto custom-scrollbar">
+        <div>
+          {(isSidebarOpen || onClose) && <p className="px-4 text-[10px] font-black text-slate-600 uppercase tracking-widest mb-3">Main</p>}
+          <div className="space-y-1">
+            {mainNavItems.map(item => (
               <Link
                 key={item.path}
                 to={item.path}
                 className={`
-                  flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all duration-300 group
-                  ${isActive 
-                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' 
-                    : 'text-slate-400 hover:bg-white/5 hover:text-white'}
+                  flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-300 group
+                  ${location.pathname === item.path 
+                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20 font-bold' 
+                    : 'text-slate-400 hover:bg-white/5 hover:text-white font-medium'}
                 `}
               >
-                <Icon size={22} className={`${isActive ? 'text-white' : 'group-hover:scale-110 transition-transform'}`} />
-                {isSidebarOpen && <span className="font-bold tracking-tight">{item.name}</span>}
+                <item.icon size={18} className={`${location.pathname === item.path ? 'text-white' : 'group-hover:scale-110 transition-transform group-hover:text-blue-400'}`} />
+                {(isSidebarOpen || onClose) && <span className="text-sm tracking-tight">{item.name}</span>}
               </Link>
-            );
-          })}
-        </nav>
-
-        <div className="p-6">
-          <button 
-            onClick={handleLogout}
-            className={`
-              w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all
-              ${isSidebarOpen ? 'bg-slate-800/50 hover:bg-rose-600/10' : ''}
-              text-slate-400 hover:text-rose-400
-            `}
-          >
-            <LogOut size={22} />
-            {isSidebarOpen && <span className="font-bold tracking-tight">Logout</span>}
-          </button>
+            ))}
+          </div>
         </div>
+
+        <div>
+          {(isSidebarOpen || onClose) && <p className="px-4 text-[10px] font-black text-slate-600 uppercase tracking-widest mb-3">Workspace Tools</p>}
+          <div className="space-y-1">
+            {toolsNavItems.map(item => (
+              <Link
+                key={item.path}
+                to={item.path}
+                className={`
+                  flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-300 group
+                  ${location.pathname === item.path 
+                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20 font-bold' 
+                    : 'text-slate-400 hover:bg-white/5 hover:text-white font-medium'}
+                `}
+              >
+                <item.icon size={18} className={`${location.pathname === item.path ? 'text-white' : 'group-hover:scale-110 transition-transform group-hover:text-blue-400'}`} />
+                {(isSidebarOpen || onClose) && <span className="text-sm tracking-tight">{item.name}</span>}
+              </Link>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          {(isSidebarOpen || onClose) && <p className="px-4 text-[10px] font-black text-slate-600 uppercase tracking-widest mb-3">System</p>}
+          <div className="space-y-1">
+            {systemNavItems.map(item => (
+              <Link
+                key={item.path}
+                to={item.path}
+                className={`
+                  flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-300 group
+                  ${location.pathname === item.path 
+                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20 font-bold' 
+                    : 'text-slate-400 hover:bg-white/5 hover:text-white font-medium'}
+                `}
+              >
+                <item.icon size={18} className={`${location.pathname === item.path ? 'text-white' : 'group-hover:scale-110 transition-transform group-hover:text-blue-400'}`} />
+                {(isSidebarOpen || onClose) && <span className="text-sm tracking-tight">{item.name}</span>}
+              </Link>
+            ))}
+          </div>
+        </div>
+      </nav>
+
+      <div className="p-4 mt-auto border-t border-white/5 space-y-1">
+        <button 
+          className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-slate-400 hover:bg-white/5 hover:text-white transition-all"
+        >
+          <HelpCircle size={18} />
+          {(isSidebarOpen || onClose) && <span className="text-sm font-medium">Support Center</span>}
+        </button>
+        <button 
+          onClick={handleLogout}
+          className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-slate-400 hover:bg-rose-500/10 hover:text-rose-400 transition-all"
+        >
+          <LogOut size={18} />
+          {(isSidebarOpen || onClose) && <span className="text-sm font-medium">Log out</span>}
+        </button>
+      </div>
+    </>
+  );
+
+  return (
+    <div className="min-h-screen flex">
+      {/* Desktop Sidebar */}
+      <aside className={`
+        ${isSidebarOpen ? 'w-64' : 'w-20'} 
+        bg-slate-900/90 backdrop-blur-2xl border-r border-white/5 transition-all duration-500 fixed h-full z-40 hidden md:flex flex-col
+      `}>
+        <SidebarContent />
       </aside>
 
-      <div className={`flex-1 transition-all duration-500 ${isSidebarOpen ? 'md:ml-72' : 'md:ml-24'}`}>
-        <header className="h-16 glass border-b border-white/5 sticky top-0 z-30 px-8 flex items-center justify-between">
-          <div className="flex items-center gap-6">
-            <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 bg-white/5 hover:bg-white/10 rounded-xl transition-all text-slate-300">
-              <Menu size={18} />
+      {/* Mobile Sidebar Overlay */}
+      <AnimatePresence>
+        {isMobileSidebarOpen && (
+          <div className="fixed inset-0 z-[60] md:hidden">
+            {/* @ts-ignore - bypassing framer-motion type mismatch in this environment */}
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsMobileSidebarOpen(false)}
+              className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm"
+            />
+            {/* @ts-ignore - bypassing framer-motion type mismatch in this environment */}
+            <motion.aside 
+              initial={{ x: '-100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '-100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="absolute left-0 top-0 bottom-0 w-72 bg-slate-900 flex flex-col border-r border-white/5"
+            >
+              <SidebarContent onClose={() => setIsMobileSidebarOpen(false)} />
+            </motion.aside>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Main Content Area */}
+      <div className={`flex-1 transition-all duration-500 ${isSidebarOpen ? 'md:ml-64' : 'md:ml-20'}`}>
+        {/* Top Header Navigation */}
+        <header className="h-16 glass border-b border-white/5 sticky top-0 z-30 px-6 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <button 
+              onClick={() => {
+                if (window.innerWidth < 768) {
+                  setIsMobileSidebarOpen(true);
+                } else {
+                  setIsSidebarOpen(!isSidebarOpen);
+                }
+              }} 
+              className="p-2 hover:bg-white/5 rounded-xl transition-all text-slate-400 hover:text-white"
+            >
+              <Menu size={20} />
             </button>
-            <div className="hidden lg:flex items-center gap-3 px-4 py-2 bg-white/5 border border-white/5 rounded-2xl w-80 text-slate-400">
-              <Search size={14} />
-              <input type="text" placeholder="Search..." className="bg-transparent border-none outline-none text-xs font-semibold w-full" />
+            <div className="hidden lg:flex items-center gap-3 px-4 py-2 bg-slate-950/50 border border-white/5 rounded-xl w-96 text-slate-500 focus-within:border-blue-500/50 focus-within:text-slate-300 transition-all">
+              <Search size={16} />
+              <input 
+                type="text" 
+                placeholder="Search documents, people, or templates..." 
+                className="bg-transparent border-none outline-none text-xs font-medium w-full placeholder:text-slate-600" 
+              />
             </div>
           </div>
 
-          <div className="flex items-center gap-6 relative" ref={notificationRef}>
-            <button 
-              onClick={() => setShowNotifications(!showNotifications)}
-              className={`relative p-2.5 rounded-xl transition-all text-slate-300 ${showNotifications ? 'bg-white/10 text-white' : 'bg-white/5 hover:bg-white/10'}`}
-            >
-              <Bell size={18} />
-              <span className="absolute top-2 right-2 w-2 h-2 bg-blue-500 rounded-full border-2 border-slate-900"></span>
-            </button>
+          <div className="flex items-center gap-3">
+            {/* Notification Center */}
+            <div className="relative" ref={notificationRef}>
+              <button 
+                onClick={() => setShowNotifications(!showNotifications)}
+                className={`p-2.5 rounded-xl transition-all ${showNotifications ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10'}`}
+              >
+                <Bell size={20} />
+                <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-rose-500 rounded-full border-2 border-slate-900"></span>
+              </button>
 
-            <AnimatePresence>
-              {showNotifications && (
-                <motion.div 
-                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                  className="absolute top-14 right-0 w-80 bg-slate-900 border border-white/10 rounded-[2rem] shadow-2xl overflow-hidden z-50"
-                >
-                  <div className="p-5 border-b border-white/5 flex items-center justify-between">
-                    <h3 className="text-sm font-bold text-white">Notifications</h3>
-                    <button onClick={() => setShowNotifications(false)} className="text-slate-500 hover:text-white transition-colors">
-                      <X size={16} />
-                    </button>
-                  </div>
-                  <div className="max-h-[300px] overflow-y-auto">
-                    {MOCK_NOTIFICATIONS.map((notif) => (
-                      <div key={notif.id} className="p-4 border-b border-white/5 hover:bg-white/5 transition-colors cursor-pointer group">
-                        <div className="flex gap-4">
-                          <div className={`shrink-0 w-10 h-10 rounded-xl flex items-center justify-center ${
-                            notif.type === 'success' ? 'bg-emerald-500/10 text-emerald-500' : 
-                            notif.type === 'warning' ? 'bg-amber-500/10 text-amber-500' : 'bg-blue-500/10 text-blue-500'
-                          }`}>
-                            <notif.icon size={18} />
-                          </div>
-                          <div>
-                            <p className="text-xs font-bold text-white">{notif.title}</p>
-                            <p className="text-[11px] text-slate-400 mt-0.5 line-clamp-2">{notif.message}</p>
-                            <p className="text-[9px] text-slate-600 font-bold mt-2 uppercase tracking-widest">{notif.time}</p>
+              <AnimatePresence>
+                {showNotifications && (
+                  /* @ts-ignore - bypassing framer-motion type mismatch in this environment */
+                  <motion.div 
+                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                    className="absolute top-14 right-0 w-80 bg-slate-900 border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-50"
+                  >
+                    <div className="p-4 border-b border-white/5 flex items-center justify-between">
+                      <h3 className="text-sm font-bold text-white">Notifications</h3>
+                      <button onClick={() => setShowNotifications(false)} className="text-slate-500 hover:text-white">
+                        <X size={16} />
+                      </button>
+                    </div>
+                    <div className="max-h-[360px] overflow-y-auto custom-scrollbar">
+                      {MOCK_NOTIFICATIONS.map((notif) => (
+                        <div key={notif.id} className="p-4 border-b border-white/5 hover:bg-white/5 transition-colors cursor-pointer group">
+                          <div className="flex gap-4">
+                            <div className={`shrink-0 w-10 h-10 rounded-xl flex items-center justify-center ${
+                              notif.type === 'success' ? 'bg-emerald-500/10 text-emerald-500' : 
+                              notif.type === 'warning' ? 'bg-amber-500/10 text-amber-500' : 'bg-blue-500/10 text-blue-500'
+                            }`}>
+                              <notif.icon size={18} />
+                            </div>
+                            <div>
+                              <p className="text-xs font-bold text-white leading-tight">{notif.title}</p>
+                              <p className="text-[11px] text-slate-400 mt-1 line-clamp-2">{notif.message}</p>
+                              <p className="text-[10px] text-slate-600 font-bold mt-2 uppercase tracking-widest">{notif.time}</p>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                  <button className="w-full py-3 text-[10px] font-black uppercase tracking-widest text-blue-500 hover:bg-blue-500/5 transition-colors">
-                    Mark all as read
-                  </button>
-                </motion.div>
-              )}
-            </AnimatePresence>
+                      ))}
+                    </div>
+                    <button className="w-full py-3 text-[10px] font-black uppercase tracking-widest text-blue-500 hover:bg-blue-500/5 transition-colors">
+                      Mark all as read
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            <div className="w-px h-6 bg-white/10 mx-2 hidden sm:block"></div>
             
-            <Link to="/settings" className="flex items-center gap-4 group">
+            {/* User Profile Hook */}
+            <Link to="/settings" className="flex items-center gap-3 pl-2 group">
               <div className="text-right hidden sm:block">
-                <p className="text-xs font-extrabold tracking-tight text-white">{user?.name || 'User'}</p>
-                <p className="text-[9px] text-blue-400 mt-0.5 uppercase tracking-widest font-black">
-                  {user?.role === 'company_admin' ? 'Enterprise' : 'Personal'}
+                <p className="text-xs font-bold text-white group-hover:text-blue-400 transition-colors">{user?.name || 'User'}</p>
+                <p className="text-[10px] text-slate-500 font-medium tracking-tight">
+                  {user?.role === 'company_admin' ? 'Enterprise Admin' : 'Pro Member'}
                 </p>
               </div>
-              <div className="p-0.5 rounded-xl bg-gradient-to-tr from-blue-600 to-emerald-400 group-hover:scale-105 transition-transform duration-300">
+              <div className="p-0.5 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-400 group-hover:scale-105 transition-transform duration-300">
                 <img 
                   src={user?.avatar || "https://api.dicebear.com/7.x/avataaars/svg?seed=user"} 
                   alt="Avatar" 
@@ -236,7 +405,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           </div>
         </header>
 
-        <main className="p-8">
+        <main className="p-4 md:p-8">
           {children}
         </main>
       </div>

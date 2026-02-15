@@ -11,12 +11,8 @@ import {
   Trash2,
   Plus,
   Download,
-  CheckCircle2,
   FileText,
-  Image as ImageIcon,
-  FileCode,
   MousePointer2,
-  Info,
   Settings2,
   Check,
   Palette,
@@ -26,8 +22,8 @@ import {
   ZoomOut,
   Maximize,
   Hand,
-  ShieldCheck,
-  FileCheck
+  FileCheck,
+  Move
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { detectSuggestedFields } from '../services/gemini';
@@ -41,12 +37,16 @@ import { jsPDF } from 'jspdf';
 interface CanvasField {
   id: string;
   type: 'signature' | 'date' | 'initials' | 'text';
-  x: number;
-  y: number;
+  x: number; // percentage
+  y: number; // percentage
+  width: number; // percentage
+  height: number; // percentage
   label: string;
   value?: string;
   color?: 'black' | 'blue' | 'red';
 }
+
+const LOGO_URL = "https://i.ibb.co/5xCWL6pX/Sign-Parse-1.png";
 
 const Editor: React.FC = () => {
   const navigate = useNavigate();
@@ -54,7 +54,6 @@ const Editor: React.FC = () => {
   const params = new URLSearchParams(location.search);
   const docName = params.get('name') || 'Untitled Document';
   const docId = params.get('id');
-  const fileExtension = docName.split('.').pop()?.toLowerCase() || '';
 
   const paperRef = useRef<HTMLDivElement>(null);
   const sigUploadRef = useRef<HTMLInputElement>(null);
@@ -66,7 +65,10 @@ const Editor: React.FC = () => {
   const [showSignaturePad, setShowSignaturePad] = useState(false);
   const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null);
   const [previewSrc, setPreviewSrc] = useState<string | null>(null);
-  const [draggingFieldId, setDraggingFieldId] = useState<string | null>(null);
+  
+  // Custom Interaction States
+  const [dragState, setDragState] = useState<{ id: string, startX: number, startY: number, fieldStartX: number, fieldStartY: number } | null>(null);
+  const [resizeState, setResizeState] = useState<{ id: string, startX: number, startY: number, startWidth: number, startHeight: number } | null>(null);
 
   // Zoom and Pan States
   const [zoom, setZoom] = useState(1);
@@ -90,8 +92,10 @@ const Editor: React.FC = () => {
       id: `ai-${Date.now()}-${i}`,
       type: res.type as any,
       label: res.label,
-      x: 15 + (Math.random() * 60),
+      x: 15 + (Math.random() * 40),
       y: 30 + (i * 12),
+      width: res.type === 'signature' ? 25 : 18,
+      height: res.type === 'signature' ? 10 : 5,
       color: 'black'
     }));
 
@@ -101,17 +105,31 @@ const Editor: React.FC = () => {
 
   const addField = (type: CanvasField['type']) => {
     const labels = { signature: 'Signature', date: 'Date Signed', initials: 'Initials', text: 'Text Field' };
+    const defaultSizes = {
+      signature: { w: 28, h: 10 },
+      date: { w: 18, h: 5 },
+      initials: { w: 14, h: 6 },
+      text: { w: 25, h: 5 }
+    };
+    
     const newField: CanvasField = {
       id: `field-${Date.now()}`,
       type,
       label: labels[type],
-      x: 40,
-      y: 40,
+      x: 35,
+      y: 35,
+      width: defaultSizes[type].w,
+      height: defaultSizes[type].h,
       color: 'black'
     };
+    
     setFields([...fields, newField]);
     setSelectedFieldId(newField.id);
     setToolMode('select');
+    
+    if (type === 'signature') {
+      setShowSignaturePad(true);
+    }
   };
 
   const removeField = (id: string) => {
@@ -131,48 +149,107 @@ const Editor: React.FC = () => {
     setFields(fields.map(f => f.id === id ? { ...f, color } : f));
   };
 
-  const handleDragStart = (id: string) => {
-    if (toolMode === 'pan') return;
-    setDraggingFieldId(id);
-    setSelectedFieldId(id);
+  const handleFieldMouseDown = (e: React.MouseEvent, field: CanvasField) => {
+    if (toolMode !== 'select') return;
+    e.stopPropagation();
+    setSelectedFieldId(field.id);
+    setDragState({
+      id: field.id,
+      startX: e.clientX,
+      startY: e.clientY,
+      fieldStartX: field.x,
+      fieldStartY: field.y
+    });
   };
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    if (!draggingFieldId || !paperRef.current) return;
+  const handleResizeMouseDown = (e: React.MouseEvent, field: CanvasField) => {
+    e.stopPropagation();
+    setResizeState({
+      id: field.id,
+      startX: e.clientX,
+      startY: e.clientY,
+      startWidth: field.width,
+      startHeight: field.height
+    });
+  };
 
+  const handleWorkspaceMouseDown = (e: React.MouseEvent) => {
+    if (toolMode === 'pan') {
+      setIsPanning(true);
+      lastMousePos.current = { x: e.clientX, y: e.clientY };
+    } else {
+      setSelectedFieldId(null);
+    }
+  };
+
+  const handleWorkspaceMouseMove = (e: React.MouseEvent) => {
+    if (isPanning) {
+      const dx = e.clientX - lastMousePos.current.x;
+      const dy = e.clientY - lastMousePos.current.y;
+      setPanOffset(prev => ({ x: prev.x + dx, y: prev.y + dy }));
+      lastMousePos.current = { x: e.clientX, y: e.clientY };
+      return;
+    }
+
+    if (!paperRef.current) return;
     const rect = paperRef.current.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width) * 100;
-    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    
+    if (dragState) {
+      const dxPercent = ((e.clientX - dragState.startX) / rect.width) * 100 / zoom;
+      const dyPercent = ((e.clientY - dragState.startY) / rect.height) * 100 / zoom;
+      
+      const field = fields.find(f => f.id === dragState.id);
+      if (!field) return;
 
-    const boundedX = Math.max(0, Math.min(x, 90));
-    const boundedY = Math.max(0, Math.min(y, 95));
+      // STICK TO DOCUMENT SIZE: Clamp x and y between 0 and (100 - width/height)
+      const newX = Math.max(0, Math.min(dragState.fieldStartX + dxPercent, 100 - field.width));
+      const newY = Math.max(0, Math.min(dragState.fieldStartY + dyPercent, 100 - field.height));
 
-    setFields(prev => prev.map(f => 
-      f.id === draggingFieldId ? { ...f, x: boundedX, y: boundedY } : f
-    ));
+      setFields(prev => prev.map(f => 
+        f.id === dragState.id ? { ...f, x: newX, y: newY } : f
+      ));
+    }
+
+    if (resizeState) {
+      const dwPercent = ((e.clientX - resizeState.startX) / rect.width) * 100 / zoom;
+      const dhPercent = ((e.clientY - resizeState.startY) / rect.height) * 100 / zoom;
+      
+      const field = fields.find(f => f.id === resizeState.id);
+      if (!field) return;
+
+      // STICK TO DOCUMENT SIZE: Clamp width and height based on current position
+      const newW = Math.max(5, Math.min(resizeState.startWidth + dwPercent, 100 - field.x));
+      const newH = Math.max(2, Math.min(resizeState.startHeight + dhPercent, 100 - field.y));
+
+      setFields(prev => prev.map(f => 
+        f.id === resizeState.id ? { ...f, width: newW, height: newH } : f
+      ));
+    }
+  };
+
+  const handleWorkspaceMouseUp = () => {
+    setIsPanning(false);
+    setDragState(null);
+    setResizeState(null);
   };
 
   const handleExportPDF = async () => {
     if (!paperRef.current) return;
     setIsDownloading(true);
     
-    // Save current view state
     const originalSelectedId = selectedFieldId;
     const originalZoom = zoom;
     const originalPan = panOffset;
     
-    // Preparation for snapshot: Clear selection and reset view for perfect DPI alignment
     setSelectedFieldId(null);
     setZoom(1); 
     setPanOffset({ x: 0, y: 0 });
     
     try {
-      // Give time for the layout to settle after state updates
-      await new Promise(r => setTimeout(r, 400));
+      await new Promise(r => setTimeout(r, 600));
 
       const canvas = await html2canvas(paperRef.current, {
-        scale: 4, // High scale for professional print quality
+        scale: 3, 
         useCORS: true,
         backgroundColor: '#ffffff',
         logging: false,
@@ -183,9 +260,7 @@ const Editor: React.FC = () => {
         windowHeight: paperRef.current.scrollHeight
       });
       
-      const imgData = canvas.toDataURL('image/jpeg', 0.98);
-      
-      // Determine actual aspect ratio for the PDF
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
       const pdfWidth = paperRef.current.offsetWidth;
       const pdfHeight = paperRef.current.offsetHeight;
       
@@ -195,13 +270,11 @@ const Editor: React.FC = () => {
         format: [pdfWidth, pdfHeight]
       });
       
-      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
-      pdf.save(`Signed_SignParse_${docName.replace(/\.[^/.]+$/, "")}.pdf`);
+      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`Signed_${docName.replace(/\.[^/.]+$/, "")}.pdf`);
     } catch (err) {
       console.error('Export error:', err);
-      alert('An error occurred while generating your professional PDF. Please check console.');
     } finally {
-      // Restore user's view state
       setSelectedFieldId(originalSelectedId);
       setZoom(originalZoom);
       setPanOffset(originalPan);
@@ -209,37 +282,11 @@ const Editor: React.FC = () => {
     }
   };
 
-  // Pan Logic
-  const handleWorkspaceMouseDown = (e: React.MouseEvent) => {
-    if (toolMode === 'pan') {
-      setIsPanning(true);
-      lastMousePos.current = { x: e.clientX, y: e.clientY };
-    }
-  };
-
-  const handleWorkspaceMouseMove = (e: React.MouseEvent) => {
-    if (isPanning) {
-      const dx = e.clientX - lastMousePos.current.x;
-      const dy = e.clientY - lastMousePos.current.y;
-      setPanOffset(prev => ({
-        x: prev.x + dx,
-        y: prev.y + dy
-      }));
-      lastMousePos.current = { x: e.clientX, y: e.clientY };
-    }
-  };
-
-  const handleWorkspaceMouseUp = () => {
-    setIsPanning(false);
-  };
-
   const handleSignatureUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file && selectedFieldId) {
       const reader = new FileReader();
-      reader.onloadend = () => {
-        updateFieldValue(selectedFieldId, reader.result as string);
-      };
+      reader.onloadend = () => updateFieldValue(selectedFieldId, reader.result as string);
       reader.readAsDataURL(file);
     }
   };
@@ -250,45 +297,37 @@ const Editor: React.FC = () => {
     return 'none';
   };
 
-  const getDocIcon = () => {
-    if (['png', 'jpg', 'jpeg'].includes(fileExtension)) return <ImageIcon className="text-emerald-400" size={18} />;
-    if (fileExtension === 'pdf') return <FileCode className="text-rose-400" size={18} />;
-    return <FileText className="text-blue-400" size={18} />;
-  };
-
   const selectedField = fields.find(f => f.id === selectedFieldId);
 
   return (
     <div className="h-[calc(100vh-100px)] flex flex-col bg-slate-950 overflow-hidden -m-6 relative">
-      {/* Global Export Loading Overlay */}
+      {/* Export Overlay */}
       {isDownloading && (
-        <div className="fixed inset-0 z-[100] bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-6 animate-in fade-in duration-300">
-          <div className="w-24 h-24 bg-blue-600 rounded-[2rem] flex items-center justify-center shadow-2xl shadow-blue-500/20 mb-8 animate-bounce">
-            <Download size={40} className="text-white" />
+        <div className="fixed inset-0 z-[100] bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center animate-in fade-in duration-300">
+          <div className="w-20 h-20 bg-blue-600 rounded-3xl flex items-center justify-center shadow-2xl mb-6 animate-pulse">
+            <Download size={32} className="text-white" />
           </div>
-          <h2 className="text-3xl font-bold text-white mb-2 tracking-tight">Generating Secure PDF</h2>
-          <p className="text-slate-400 font-medium mb-8">SignParse is flattening fields and encrypting your signatures...</p>
-          <div className="w-64 h-2 bg-slate-900 rounded-full overflow-hidden border border-slate-800">
-            <div className="h-full bg-blue-500 w-1/2 animate-progress-fast"></div>
-          </div>
+          <h2 className="text-2xl font-bold text-white mb-2">Flattening Document</h2>
+          <p className="text-slate-400 text-sm">Embedding secure signatures and audit metadata...</p>
         </div>
       )}
 
-      <header className="h-16 border-b border-slate-800 bg-slate-900/50 backdrop-blur-md flex items-center justify-between px-6 shrink-0 z-30">
+      <header className="h-20 border-b border-slate-800 bg-slate-900/50 backdrop-blur-md flex items-center justify-between px-6 shrink-0 z-30">
         <div className="flex items-center gap-4">
           <button onClick={() => navigate('/dashboard')} className="p-2 hover:bg-slate-800 rounded-xl transition-all text-slate-400 hover:text-white">
             <ChevronLeft size={20} />
           </button>
           <div className="flex items-center gap-2">
-            {getDocIcon()}
-            <h1 className="text-sm font-bold text-white truncate max-w-[200px]">{docName}</h1>
+            <img src={LOGO_URL} className="h-14 w-auto opacity-90" alt="logo" />
+            <div className="w-px h-4 bg-slate-700 mx-2"></div>
+            <h1 className="text-xs font-bold text-slate-300 truncate max-w-[200px] uppercase tracking-widest">{docName}</h1>
           </div>
         </div>
 
         <div className="flex items-center gap-3">
           <button onClick={handleAiDetection} disabled={isAiLoading} className="hidden sm:flex items-center gap-2 bg-slate-800 text-blue-400 px-4 py-2 rounded-xl text-xs font-bold border border-slate-700 disabled:opacity-50 transition-all active:scale-95">
             {isAiLoading ? <Loader2 className="animate-spin" size={14} /> : <Sparkles size={14} />}
-            AI Smart Detect
+            Smart Detect
           </button>
           <button 
             onClick={handleExportPDF} 
@@ -296,7 +335,7 @@ const Editor: React.FC = () => {
             className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-lg shadow-blue-500/20 disabled:opacity-50 active:scale-95"
           >
             {isDownloading ? <Loader2 size={14} className="animate-spin" /> : <FileCheck size={14} />}
-            Finalize & Download
+            Finalize
           </button>
         </div>
       </header>
@@ -306,7 +345,7 @@ const Editor: React.FC = () => {
         <aside className="w-64 border-r border-slate-800 bg-slate-900/30 flex flex-col shrink-0 overflow-y-auto z-20">
           <div className="p-6 space-y-8">
             <section>
-              <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">Add Content Field</h3>
+              <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">Add Element</h3>
               <div className="grid grid-cols-1 gap-2">
                 {[
                   { type: 'signature', icon: PenTool, label: 'Signature', color: 'text-blue-400', bg: 'bg-blue-400/10' },
@@ -328,16 +367,6 @@ const Editor: React.FC = () => {
                 ))}
               </div>
             </section>
-
-            <div className="p-4 bg-slate-800/20 rounded-2xl border border-slate-800/50">
-              <div className="flex items-center gap-2 text-blue-400 mb-2">
-                <ShieldCheck size={14} />
-                <span className="text-[10px] font-black uppercase tracking-widest">Compliance</span>
-              </div>
-              <p className="text-[10px] text-slate-500 leading-relaxed font-medium">
-                Fields placed here are protected by SignParse e-Sign standards and are legally binding under UETA/eIDAS.
-              </p>
-            </div>
           </div>
         </aside>
 
@@ -345,7 +374,6 @@ const Editor: React.FC = () => {
         <main 
           ref={workspaceRef}
           className={`flex-1 bg-slate-950 relative overflow-hidden flex justify-center items-start ${toolMode === 'pan' ? (isPanning ? 'cursor-grabbing' : 'cursor-grab') : 'cursor-default'}`}
-          onDragOver={handleDragOver}
           onMouseDown={handleWorkspaceMouseDown}
           onMouseMove={handleWorkspaceMouseMove}
           onMouseUp={handleWorkspaceMouseUp}
@@ -354,23 +382,23 @@ const Editor: React.FC = () => {
           {/* Document Container */}
           <div 
             ref={paperRef}
-            className="bg-white shadow-2xl relative select-none flex-shrink-0 transition-transform duration-200 ease-out origin-top"
+            className="bg-white shadow-2xl relative select-none flex-shrink-0 transition-transform duration-100 ease-out origin-top"
             style={{ 
               width: '100%', 
               maxWidth: '816px', 
               minHeight: '1056px',
               height: 'auto',
               marginTop: '48px',
+              marginBottom: '100px',
               transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoom})`
             }}
-            onClick={() => toolMode === 'select' && setSelectedFieldId(null)}
           >
             {previewSrc ? (
               <img src={previewSrc} className="w-full block pointer-events-none" alt="Doc" />
             ) : (
-              <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-200">
-                <FileText size={64} className="opacity-10 mb-4" />
-                <p className="font-bold opacity-10 uppercase tracking-[0.2em]">{docName}</p>
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-100">
+                <FileText size={64} className="opacity-5 mb-4" />
+                <p className="font-bold opacity-10 text-slate-900 uppercase tracking-widest">{docName}</p>
               </div>
             )}
 
@@ -378,60 +406,72 @@ const Editor: React.FC = () => {
             {fields.map((field) => (
               <div
                 key={field.id}
-                draggable={toolMode === 'select'}
-                onDragStart={() => handleDragStart(field.id)}
                 style={{ 
                   left: `${field.x}%`, 
                   top: `${field.y}%`,
+                  width: `${field.width}%`,
+                  height: `${field.height}%`,
                   position: 'absolute'
                 }}
+                onMouseDown={(e) => handleFieldMouseDown(e, field)}
                 className={`z-20 group ${selectedFieldId === field.id ? 'z-30' : ''}`}
                 onClick={(e) => { 
                   if (toolMode === 'select') {
                     e.stopPropagation(); 
-                    setSelectedFieldId(field.id); 
+                    setSelectedFieldId(field.id);
+                    if (field.type === 'signature' && !field.value) setShowSignaturePad(true);
                   }
                 }}
               >
                 <div 
                   className={`
-                    flex items-center gap-2 px-3 py-2.5 rounded-xl border-2 shadow-xl min-w-[140px]
-                    ${toolMode === 'select' ? 'cursor-move' : 'cursor-inherit'}
-                    ${selectedFieldId === field.id ? 'border-blue-600 bg-white scale-105' : 'border-slate-300 bg-white/95'}
+                    w-full h-full flex items-center justify-center rounded-lg border-2 shadow-sm transition-all relative
+                    ${selectedFieldId === field.id ? 'border-blue-600 bg-white ring-4 ring-blue-500/10' : 'border-slate-300 bg-white/95'}
                   `}
                 >
-                  <div className="shrink-0">
-                    {field.type === 'signature' && field.value ? (
-                      <CheckCircle2 size={16} className="text-emerald-500" />
-                    ) : (
-                      field.type === 'signature' ? <PenTool size={16} className="text-blue-400" /> :
-                      field.type === 'date' ? <Calendar size={16} className="text-emerald-400" /> :
-                      field.type === 'initials' ? <User size={16} className="text-purple-400" /> :
-                      <Type size={16} className="text-amber-400" />
-                    )}
-                  </div>
-                  
-                  <div className="flex-1 text-center truncate">
+                  {/* Interaction Indicators */}
+                  {selectedFieldId === field.id && (
+                    <>
+                      <div className="absolute -top-3 -left-3 p-1.5 bg-blue-600 text-white rounded-lg shadow-lg">
+                        <Move size={12} />
+                      </div>
+                      <div 
+                        onMouseDown={(e) => handleResizeMouseDown(e, field)}
+                        className="absolute -bottom-3 -right-3 w-8 h-8 bg-blue-600 text-white rounded-lg shadow-lg flex items-center justify-center cursor-nwse-resize hover:scale-110 transition-transform z-50"
+                      >
+                        <Maximize size={14} />
+                      </div>
+                    </>
+                  )}
+
+                  <div className="flex-1 h-full flex flex-col items-center justify-center p-1 overflow-hidden">
                     {field.type === 'signature' && field.value ? (
                       <img 
                         src={field.value} 
-                        className="h-10 w-full object-contain signature-ink" 
+                        className="max-h-full max-w-full object-contain pointer-events-none" 
                         style={{ filter: getSignatureFilter(field.color) }}
                         alt="signed" 
                       />
                     ) : (
                       field.type === 'text' && field.value ? (
-                        <span className="text-sm font-semibold text-slate-900">{field.value}</span>
+                        <span className="text-sm font-semibold text-slate-900 break-all line-clamp-2 px-2 text-center">{field.value}</span>
                       ) : (
-                        <span className="text-[10px] font-black text-slate-800 uppercase tracking-widest">{field.label}</span>
+                        <div className="flex flex-col items-center gap-1">
+                          {field.type === 'signature' ? <PenTool size={14} className="text-blue-400" /> :
+                           field.type === 'date' ? <Calendar size={14} className="text-emerald-400" /> :
+                           field.type === 'initials' ? <User size={14} className="text-purple-400" /> :
+                           <Type size={14} className="text-amber-400" />}
+                          <span className="text-[9px] font-black text-slate-800 uppercase tracking-widest">{field.label}</span>
+                        </div>
                       )
                     )}
                   </div>
 
-                  {selectedFieldId === field.id && toolMode === 'select' && !isDownloading && (
+                  {selectedFieldId === field.id && !isDownloading && (
                     <button 
+                      onMouseDown={(e) => e.stopPropagation()}
                       onClick={(e) => { e.stopPropagation(); removeField(field.id); }} 
-                      className="p-1 hover:text-rose-500 transition-colors"
+                      className="absolute -top-8 right-0 p-1.5 bg-slate-900 text-white hover:text-rose-400 rounded-lg shadow-xl transition-all"
                     >
                       <Trash2 size={14} />
                     </button>
@@ -441,7 +481,7 @@ const Editor: React.FC = () => {
             ))}
           </div>
 
-          {/* Floating View Controls */}
+          {/* Controls */}
           <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-2 p-2 bg-slate-900/80 backdrop-blur-xl border border-slate-800 rounded-3xl shadow-2xl z-40">
             <div className="flex items-center bg-slate-950/50 rounded-2xl border border-slate-800 p-1 mr-2">
               <button 
@@ -461,7 +501,7 @@ const Editor: React.FC = () => {
             </div>
             
             <button 
-              onClick={() => setZoom(Math.max(0.5, zoom - 0.1))} 
+              onClick={() => setZoom(Math.max(0.4, zoom - 0.1))} 
               className="p-2.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-2xl transition-all"
             >
               <ZoomOut size={18} />
@@ -502,7 +542,7 @@ const Editor: React.FC = () => {
           <div className="p-6 h-full flex flex-col space-y-8">
             <div className="flex items-center gap-2">
               <Settings2 size={18} className="text-slate-400" />
-              <h2 className="text-xs font-black text-slate-500 uppercase tracking-widest">Properties</h2>
+              <h2 className="text-xs font-black text-slate-500 uppercase tracking-widest">Element Options</h2>
             </div>
             
             <div className="flex-1 space-y-8">
@@ -511,7 +551,7 @@ const Editor: React.FC = () => {
                   <div className="bg-slate-800/50 p-5 rounded-[2rem] border border-slate-800/50 space-y-4">
                     <div className="flex items-center gap-2">
                       <AlignLeft size={14} className="text-blue-400" />
-                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Display Label</label>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Field Label</label>
                     </div>
                     <input 
                       type="text" 
@@ -522,44 +562,42 @@ const Editor: React.FC = () => {
                   </div>
 
                   {selectedField.type === 'signature' && (
-                    <div className="space-y-6">
-                      <div className="bg-slate-800/50 p-5 rounded-[2rem] border border-slate-800/50 space-y-4">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Palette size={14} className="text-blue-400" />
-                          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Signature Style</label>
-                        </div>
-                        
-                        <div className="flex gap-3 mb-4">
-                          {(['black', 'blue', 'red'] as const).map((color) => (
-                            <button
-                              key={color}
-                              onClick={() => updateFieldColor(selectedField.id, color)}
-                              className={`w-10 h-10 rounded-full border-2 transition-all flex items-center justify-center ${selectedField.color === color ? 'border-white scale-110 shadow-lg' : 'border-transparent'}`}
-                              style={{ backgroundColor: color }}
-                            >
-                              {selectedField.color === color && <Check size={16} className="text-white" />}
-                            </button>
-                          ))}
-                        </div>
+                    <div className="bg-slate-800/50 p-5 rounded-[2rem] border border-slate-800/50 space-y-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Palette size={14} className="text-blue-400" />
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Ink Selection</label>
+                      </div>
+                      
+                      <div className="flex gap-3 mb-4">
+                        {(['black', 'blue', 'red'] as const).map((color) => (
+                          <button
+                            key={color}
+                            onClick={() => updateFieldColor(selectedField.id, color)}
+                            className={`w-10 h-10 rounded-full border-2 transition-all flex items-center justify-center ${selectedField.color === color ? 'border-white scale-110 shadow-lg' : 'border-transparent'}`}
+                            style={{ backgroundColor: color }}
+                          >
+                            {selectedField.color === color && <Check size={16} className="text-white" />}
+                          </button>
+                        ))}
+                      </div>
 
-                        <div className="grid grid-cols-2 gap-3">
-                          <button 
-                            onClick={() => setShowSignaturePad(true)} 
-                            className="flex flex-col items-center gap-2 py-4 px-2 bg-blue-600/10 border border-blue-500/20 hover:bg-blue-600/20 text-blue-400 rounded-2xl transition-all"
-                          >
-                            <PenTool size={20} />
-                            <span className="text-[10px] font-bold uppercase">Draw</span>
-                          </button>
-                          
-                          <button 
-                            onClick={() => sigUploadRef.current?.click()}
-                            className="flex flex-col items-center gap-2 py-4 px-2 bg-slate-950 border border-slate-800 hover:border-slate-700 text-slate-400 rounded-2xl transition-all"
-                          >
-                            <Upload size={20} />
-                            <span className="text-[10px] font-bold uppercase">Upload</span>
-                          </button>
-                          <input type="file" ref={sigUploadRef} className="hidden" accept="image/*" onChange={handleSignatureUpload} />
-                        </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <button 
+                          onClick={() => setShowSignaturePad(true)} 
+                          className="flex flex-col items-center gap-2 py-4 px-2 bg-blue-600/10 border border-blue-500/20 hover:bg-blue-600/20 text-blue-400 rounded-2xl transition-all"
+                        >
+                          <PenTool size={20} />
+                          <span className="text-[10px] font-bold uppercase">Redraw</span>
+                        </button>
+                        
+                        <button 
+                          onClick={() => sigUploadRef.current?.click()}
+                          className="flex flex-col items-center gap-2 py-4 px-2 bg-slate-950 border border-slate-800 hover:border-slate-700 text-slate-400 rounded-2xl transition-all"
+                        >
+                          <Upload size={20} />
+                          <span className="text-[10px] font-bold uppercase">Upload</span>
+                        </button>
+                        <input type="file" ref={sigUploadRef} className="hidden" accept="image/*" onChange={handleSignatureUpload} />
                       </div>
                     </div>
                   )}
@@ -568,39 +606,17 @@ const Editor: React.FC = () => {
                     onClick={() => removeField(selectedField.id)}
                     className="w-full py-4 bg-rose-500/10 border border-rose-500/20 text-rose-500 rounded-[2rem] text-[10px] font-black uppercase tracking-widest hover:bg-rose-500/20 transition-all flex items-center justify-center gap-2"
                   >
-                    <Trash2 size={14} /> Remove Field
+                    <Trash2 size={14} /> Remove Element
                   </button>
                 </div>
               ) : (
-                <div className="flex-1 flex flex-col items-center justify-center text-center p-8 space-y-4 opacity-40">
-                  <MousePointer2 size={40} className="text-slate-600" />
-                  <p className="text-xs text-slate-500 font-medium leading-relaxed">Select a field on the document to edit its properties or placement.</p>
+                <div className="flex-1 flex flex-col items-center justify-center text-center p-8 space-y-4 opacity-30">
+                  <div className="w-16 h-16 bg-slate-800/50 rounded-full flex items-center justify-center">
+                    <MousePointer2 size={32} className="text-slate-600" />
+                  </div>
+                  <p className="text-xs text-slate-500 font-medium leading-relaxed">Select an element to adjust properties or resize.</p>
                 </div>
               )}
-            </div>
-
-            {/* Finalization Card */}
-            <div className="pt-8 border-t border-slate-800">
-               <div className="bg-gradient-to-br from-blue-600 to-blue-800 p-6 rounded-[2.5rem] shadow-2xl relative overflow-hidden group">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 group-hover:scale-150 transition-transform duration-700"></div>
-                  <div className="relative z-10 space-y-4">
-                    <div className="flex items-center gap-2 text-white">
-                      <FileCheck size={18} />
-                      <h4 className="text-sm font-bold">Ready to sign?</h4>
-                    </div>
-                    <p className="text-[11px] text-blue-100/80 font-medium leading-relaxed">
-                      Finalizing will bake your signatures into the document forever. This action is irreversible.
-                    </p>
-                    <button 
-                      onClick={handleExportPDF}
-                      disabled={isDownloading || fields.length === 0}
-                      className="w-full py-3.5 bg-white text-blue-700 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-blue-50 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-                    >
-                      {isDownloading ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
-                      Finish Document
-                    </button>
-                  </div>
-               </div>
             </div>
           </div>
         </aside>

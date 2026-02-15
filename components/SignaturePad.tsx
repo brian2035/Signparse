@@ -19,30 +19,52 @@ const SignaturePad: React.FC<SignaturePadProps> = ({ onSave, onCancel }) => {
     { name: 'Red', hex: '#dc2626' }
   ];
 
+  // Initialize canvas only once or on resize
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const resizeCanvas = () => {
+    const initCanvas = () => {
       const parent = canvas.parentElement;
       if (parent) {
-        // Use higher resolution for internal drawing
+        // Store existing content if any (though resizing usually clears)
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = canvas.width;
+        tempCanvas.height = canvas.height;
+        const tempCtx = tempCanvas.getContext('2d');
+        if (tempCtx) tempCtx.drawImage(canvas, 0, 0);
+
+        // Adjust dimensions
         canvas.width = parent.clientWidth * 2;
         canvas.height = parent.clientHeight * 2;
-        ctx.scale(2, 2);
         
+        // Restore context settings
+        ctx.scale(2, 2);
         ctx.lineWidth = 3;
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
         ctx.strokeStyle = inkColor;
+
+        // Restore content if it was a window resize
+        ctx.drawImage(tempCanvas, 0, 0, canvas.width / 2, canvas.height / 2);
       }
     };
 
-    resizeCanvas();
-    window.addEventListener('resize', resizeCanvas);
-    return () => window.removeEventListener('resize', resizeCanvas);
+    initCanvas();
+    window.addEventListener('resize', initCanvas);
+    return () => window.removeEventListener('resize', initCanvas);
+  }, []);
+
+  // Update stroke style when color changes without clearing the canvas
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.strokeStyle = inkColor;
+    }
   }, [inkColor]);
 
   const getCoordinates = (e: React.MouseEvent | React.TouchEvent) => {
@@ -66,6 +88,7 @@ const SignaturePad: React.FC<SignaturePadProps> = ({ onSave, onCancel }) => {
   };
 
   const startDrawing = (e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
     setIsDrawing(true);
     setHasContent(true);
     const ctx = canvasRef.current?.getContext('2d');
@@ -80,6 +103,7 @@ const SignaturePad: React.FC<SignaturePadProps> = ({ onSave, onCancel }) => {
 
   const draw = (e: React.MouseEvent | React.TouchEvent) => {
     if (!isDrawing) return;
+    e.preventDefault();
     const ctx = canvasRef.current?.getContext('2d');
     if (!ctx) return;
     
@@ -136,9 +160,7 @@ const SignaturePad: React.FC<SignaturePadProps> = ({ onSave, onCancel }) => {
           {COLORS.map((c) => (
             <button
               key={c.hex}
-              onClick={() => {
-                setInkColor(c.hex);
-              }}
+              onClick={() => setInkColor(c.hex)}
               className={`
                 w-8 h-8 rounded-full border-2 transition-all
                 ${inkColor === c.hex ? 'border-blue-500 scale-110' : 'border-transparent opacity-60 hover:opacity-100'}
@@ -170,6 +192,7 @@ const SignaturePad: React.FC<SignaturePadProps> = ({ onSave, onCancel }) => {
         )}
         <div className="absolute bottom-6 right-6 flex gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
           <button 
+            type="button"
             onClick={handleDownload} 
             disabled={!hasContent} 
             title="Download PNG"
@@ -178,6 +201,7 @@ const SignaturePad: React.FC<SignaturePadProps> = ({ onSave, onCancel }) => {
             <Download size={20} />
           </button>
           <button 
+            type="button"
             onClick={clear} 
             title="Clear Board"
             className="p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-slate-500 hover:text-rose-500 shadow-lg transition-all"

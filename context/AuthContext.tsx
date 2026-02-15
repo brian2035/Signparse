@@ -34,14 +34,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       role,
       avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${email}`,
       jobTitle: 'Professional',
-      organization: role === 'company_admin' ? 'SignFlow Labs' : undefined
+      organization: role === 'company_admin' ? 'SignParse Labs' : undefined
     };
     setUser(newUser);
     localStorage.setItem('signflow_user', JSON.stringify(newUser));
 
     if (role === 'company_admin') {
       const newOrg: Organization = {
-        name: 'SignFlow Labs',
+        name: 'SignParse Labs',
         primaryColor: '#3b82f6',
         accentColor: '#10b981'
       };
